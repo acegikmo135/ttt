@@ -52,19 +52,6 @@
       background: #333;
     }
 
-    .line {
-      position: absolute;
-      height: 5px;
-      background: red;
-      transform-origin: left center;
-      width: 0;
-      top: 0;
-      left: 0;
-      opacity: 0;
-      transition: all 0.5s ease;
-      z-index: 1;
-    }
-
     .win-animate {
       animation: pulse 0.4s infinite alternate;
     }
@@ -87,32 +74,32 @@
 
   <p id="status">Enter a Game ID to play</p>
   <div id="board"></div>
-  <div class="line" id="winLine"></div>
 
   <!-- Firebase -->
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 
   <script>
-    // 🔥 REPLACE THIS CONFIG with your Firebase project credentials
+    // 🔥 Replace with your Firebase config
     const firebaseConfig = {
-        apiKey: "AIzaSyClMcpCLjyKac0jAdIBk2B1llNWeBUvOCY",
-        authDomain: "tictactoe-2011.firebaseapp.com",
-        projectId: "tictactoe-2011",
-        storageBucket: "tictactoe-2011.firebasestorage.app",
-        messagingSenderId: "1086544581306",
-        appId: "1:1086544581306:web:f76a8135a9db614e002883"
+      apiKey: "AIzaSyClMcpCLjyKac0jAdIBk2B1llNWeBUvOCY",
+      authDomain: "tictactoe-2011.firebaseapp.com",
+      projectId: "tictactoe-2011",
+      storageBucket: "tictactoe-2011.appspot.com",
+      messagingSenderId: "1086544581306",
+      appId: "1:1086544581306:web:f76a8135a9db614e002883"
     };
+
     firebase.initializeApp(firebaseConfig);
     const db = firebase.firestore();
 
     const boardEl = document.getElementById("board");
-    const winLine = document.getElementById("winLine");
     const statusEl = document.getElementById("status");
 
-    let gameDoc, gameId, playerSymbol;
+    let gameDoc, gameId, playerSymbol = "";
     let board = Array(9).fill("");
     let turn = "X";
+    let gameWinner = null;
 
     const winCombos = [
       [0,1,2],[3,4,5],[6,7,8],
@@ -121,7 +108,6 @@
     ];
 
     function joinGame() {
-      resetLine();
       gameId = document.getElementById("gameIdInput").value.trim();
       if (!gameId) return alert("Please enter a Game ID");
 
@@ -130,11 +116,29 @@
       gameDoc.get().then(doc => {
         if (doc.exists) {
           const data = doc.data();
-          playerSymbol = data.turn === "O" ? "O" : "X";
+          const players = data.players || {};
+
+          if (!players.X) {
+            playerSymbol = "X";
+            gameDoc.set({ players: { ...players, X: true } }, { merge: true });
+          } else if (!players.O) {
+            playerSymbol = "O";
+            gameDoc.set({ players: { ...players, O: true } }, { merge: true });
+          } else {
+            alert("2 Players already joined this Game ID!");
+            return;
+          }
+
         } else {
           playerSymbol = "X";
-          gameDoc.set({ board: Array(9).fill(""), turn: "X" });
+          gameDoc.set({
+            board: Array(9).fill(""),
+            turn: "X",
+            winner: "",
+            players: { X: true }
+          });
         }
+
         listenGame();
       });
     }
@@ -142,8 +146,13 @@
     function resetGame() {
       const id = document.getElementById("gameIdInput").value.trim();
       if (!id) return alert("Enter Game ID to reset");
-      db.collection("games").doc(id).set({ board: Array(9).fill(""), turn: "X" });
-      resetLine();
+
+      db.collection("games").doc(id).set({
+        board: Array(9).fill(""),
+        turn: "X",
+        winner: "",
+        players: {}  // Also clear players on reset
+      });
     }
 
     function renderBoard() {
@@ -152,7 +161,7 @@
         const cell = document.createElement("div");
         cell.className = "cell";
         cell.textContent = val;
-        if (!val && turn === playerSymbol && !checkWin()) {
+        if (!val && turn === playerSymbol && !gameWinner) {
           cell.onclick = () => makeMove(i);
         }
         boardEl.appendChild(cell);
@@ -160,71 +169,57 @@
     }
 
     function makeMove(i) {
-      if (board[i] || checkWin()) return;
+      if (board[i] || gameWinner) return;
       board[i] = playerSymbol;
       turn = playerSymbol === "X" ? "O" : "X";
-      updateGame();
-    }
-
-    function updateGame() {
-      gameDoc.set({ board, turn }, { merge: true });
+      const winner = checkWin();
+      const updateData = { board, turn };
+      if (winner) updateData.winner = winner;
+      gameDoc.set(updateData, { merge: true });
     }
 
     function checkWin() {
       for (const [a, b, c] of winCombos) {
         if (board[a] && board[a] === board[b] && board[a] === board[c]) {
-          animateWin(a, b, c);
           return board[a];
         }
       }
       return null;
     }
 
-    function animateWin(a, b, c) {
-      const cellA = boardEl.children[a];
-      const cellC = boardEl.children[c];
-
-      const x1 = cellA.offsetLeft + cellA.offsetWidth / 2;
-      const y1 = cellA.offsetTop + cellA.offsetHeight / 2;
-      const x2 = cellC.offsetLeft + cellC.offsetWidth / 2;
-      const y2 = cellC.offsetTop + cellC.offsetHeight / 2;
-
-      const dx = x2 - x1;
-      const dy = y2 - y1;
-      const length = Math.sqrt(dx * dx + dy * dy);
-      const angle = Math.atan2(dy, dx) * (180 / Math.PI);
-
-      winLine.style.left = `${x1}px`;
-      winLine.style.top = `${y1}px`;
-      winLine.style.width = `${length}px`;
-      winLine.style.transform = `rotate(${angle}deg)`;
-      winLine.style.opacity = 1;
-
+    function animateWinCells(a, b, c) {
       boardEl.children[a].classList.add("win-animate");
       boardEl.children[b].classList.add("win-animate");
       boardEl.children[c].classList.add("win-animate");
-
-      statusEl.textContent = `${board[a]} wins!`;
-    }
-
-    function resetLine() {
-      winLine.style.width = "0";
-      winLine.style.opacity = 0;
     }
 
     function listenGame() {
       gameDoc.onSnapshot(doc => {
         const data = doc.data();
         if (!data) return;
+
         board = data.board;
         turn = data.turn;
+        gameWinner = data.winner || null;
         renderBoard();
 
-        const winner = checkWin();
-        if (winner) {
-          statusEl.textContent = winner === playerSymbol ? "You win!" : "You lose!";
+        if (gameWinner) {
+          const isYou = gameWinner === playerSymbol;
+          if (isYou) {
+            statusEl.textContent = `You win! (You are ${playerSymbol})`;
+          } else {
+            const winnerName = gameWinner === "X" ? "Player1" : "Player2";
+            statusEl.textContent = `${winnerName} won (You are ${playerSymbol})`;
+          }
+
+          const [a, b, c] = winCombos.find(([i, j, k]) =>
+            board[i] && board[i] === board[j] && board[i] === board[k]
+          ) || [];
+          if (a !== undefined) animateWinCells(a, b, c);
+
         } else {
-          statusEl.textContent = turn === playerSymbol ? "Your turn" : "Waiting...";
+          statusEl.textContent = `You are ${playerSymbol} — ` +
+            (turn === playerSymbol ? "Your turn" : "Waiting...");
         }
       });
     }
