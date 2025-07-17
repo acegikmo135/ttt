@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>2-Player Firebase Tic Tac Toe</title>
+  <style>
+    body {
+      background: #111;
+      color: #fff;
+      font-family: Arial, sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 20px;
+    }
+
+    h1 { margin-bottom: 10px; }
+
+    #controls {
+      margin-bottom: 15px;
+    }
+
+    input, button {
+      padding: 8px;
+      font-size: 16px;
+      margin: 5px;
+    }
+
+    #board {
+      display: grid;
+      grid-template-columns: repeat(3, 100px);
+      grid-template-rows: repeat(3, 100px);
+      gap: 5px;
+      position: relative;
+      margin-top: 15px;
+    }
+
+    .cell {
+      width: 100px;
+      height: 100px;
+      background: #222;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 2.5rem;
+      cursor: pointer;
+      position: relative;
+      transition: background 0.3s;
+    }
+
+    .cell:hover {
+      background: #333;
+    }
+
+    .win-animate {
+      animation: pulse 0.4s infinite alternate;
+    }
+
+    @keyframes pulse {
+      from { transform: scale(1); }
+      to   { transform: scale(1.3); }
+    }
+  </style>
+</head>
+<body>
+
+  <h1>Tic Tac Toe</h1>
+
+  <div id="controls">
+    <input type="text" id="gameIdInput" placeholder="Enter Game ID" />
+    <button onclick="joinGame()">Join Game</button>
+    <button onclick="resetGame()">Reset Game</button>
+  </div>
+
+  <p id="status">Enter a Game ID to play</p>
+  <div id="board"></div>
+
+  <!-- Firebase -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+
+  <script>
+    // 🔥 Replace with your Firebase config
+    const firebaseConfig = {
+      apiKey: "AIzaSyClMcpCLjyKac0jAdIBk2B1llNWeBUvOCY",
+      authDomain: "tictactoe-2011.firebaseapp.com",
+      projectId: "tictactoe-2011",
+      storageBucket: "tictactoe-2011.appspot.com",
+      messagingSenderId: "1086544581306",
+      appId: "1:1086544581306:web:f76a8135a9db614e002883"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+
+    const boardEl = document.getElementById("board");
+    const statusEl = document.getElementById("status");
+
+    let gameDoc, gameId, playerSymbol = "";
+    let board = Array(9).fill("");
+    let turn = "X";
+    let gameWinner = null;
+
+    const winCombos = [
+      [0,1,2],[3,4,5],[6,7,8],
+      [0,3,6],[1,4,7],[2,5,8],
+      [0,4,8],[2,4,6]
+    ];
+
+    function joinGame() {
+      gameId = document.getElementById("gameIdInput").value.trim();
+      if (!gameId) return alert("Please enter a Game ID");
+
+      gameDoc = db.collection("games").doc(gameId);
+
+      gameDoc.get().then(doc => {
+        if (doc.exists) {
+          const data = doc.data();
+          const players = data.players || {};
+
+          if (!players.X) {
+            playerSymbol = "X";
+            gameDoc.set({ players: { ...players, X: true } }, { merge: true });
+          } else if (!players.O) {
+            playerSymbol = "O";
+            gameDoc.set({ players: { ...players, O: true } }, { merge: true });
+          } else {
+            alert("2 Players already joined this Game ID!");
+            return;
+          }
+
+        } else {
+          playerSymbol = "X";
+          gameDoc.set({
+            board: Array(9).fill(""),
+            turn: "X",
+            winner: "",
+            players: { X: true }
+          });
+        }
+
+        listenGame();
+      });
+    }
+
+    function resetGame() {
+      const id = document.getElementById("gameIdInput").value.trim();
+      if (!id) return alert("Enter Game ID to reset");
+
+      db.collection("games").doc(id).set({
+        board: Array(9).fill(""),
+        turn: "X",
+        winner: "",
+        players: {}  // Also clear players on reset
+      });
+    }
+
+    function renderBoard() {
+      boardEl.innerHTML = "";
+      board.forEach((val, i) => {
+        const cell = document.createElement("div");
+        cell.className = "cell";
+        cell.textContent = val;
+        if (!val && turn === playerSymbol && !gameWinner) {
+          cell.onclick = () => makeMove(i);
+        }
+        boardEl.appendChild(cell);
+      });
+    }
+
+    function makeMove(i) {
+      if (board[i] || gameWinner) return;
+      board[i] = playerSymbol;
+      turn = playerSymbol === "X" ? "O" : "X";
+      const winner = checkWin();
+      const updateData = { board, turn };
+      if (winner) updateData.winner = winner;
+      gameDoc.set(updateData, { merge: true });
+    }
+
+    function checkWin() {
+      for (const [a, b, c] of winCombos) {
+        if (board[a] && board[a] === board[b] && board[a] === board[c]) {
+          return board[a];
+        }
+      }
+      return null;
+    }
+
+    function animateWinCells(a, b, c) {
+      boardEl.children[a].classList.add("win-animate");
+      boardEl.children[b].classList.add("win-animate");
+      boardEl.children[c].classList.add("win-animate");
+    }
+
+    function listenGame() {
+      gameDoc.onSnapshot(doc => {
+        const data = doc.data();
+        if (!data) return;
+
+        board = data.board;
+        turn = data.turn;
+        gameWinner = data.winner || null;
+        renderBoard();
+
+        if (gameWinner) {
+          const isYou = gameWinner === playerSymbol;
+          if (isYou) {
+            statusEl.textContent = `You win! (You are ${playerSymbol})`;
+          } else {
+            const winnerName = gameWinner === "X" ? "Player1" : "Player2";
+            statusEl.textContent = `${winnerName} won (You are ${playerSymbol})`;
+          }
+
+          const [a, b, c] = winCombos.find(([i, j, k]) =>
+            board[i] && board[i] === board[j] && board[i] === board[k]
+          ) || [];
+          if (a !== undefined) animateWinCells(a, b, c);
+
+        } else {
+          statusEl.textContent = `You are ${playerSymbol} — ` +
+            (turn === playerSymbol ? "Your turn" : "Waiting...");
+        }
+      });
+    }
+  </script>
+</body>
+</html>
