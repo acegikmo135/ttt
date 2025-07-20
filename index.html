@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GameZone - Access Terminal</title>
+    <title>Pro GameZone</title>
     <style>
         @import url('https://fonts.googleapis.com/css?family=Orbitron:400,700');
 
@@ -264,7 +264,7 @@
 
     <div class="login-container">
         <div class="scanline"></div>
-        <h1>GameZone</h1>
+        <h1>Pro GameZone</h1>
         <p>Authorization Required</p>
         <form id="passwordForm" class="password-form" onsubmit="return checkPassword()">
             <div class="input-group">
@@ -289,21 +289,21 @@
             if (password === '16122011') {
                 const successMessage = document.createElement('p');
                 successMessage.id = 'statusMessage';
-                successMessage.textContent = 'ACCESS GRANTED. REDIRECTING...';
+                successMessage.textContent = 'ACCESS GRANTED. Welcome';
                 successMessage.style.color = 'var(--primary-color)';
                 successMessage.style.marginTop = '20px';
                 form.appendChild(successMessage);
 
                 setTimeout(() => {
-                    window.location.href = 'lp.html';
-                }, 2000);
+                    window.location.href = 'splash.html';
+                }, 4000);
                 
                 return false;
             } else {
                 passwordInput.style.animation = 'shake 0.5s';
                 
                 setTimeout(() => {
-                    alert('ACCESS DENIED: INCORRECT PASSWD');
+                    alert('Access Denied');
                     passwordInput.style.animation = '';
                 }, 500);
 
