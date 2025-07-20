@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pro GameZone</title>
+    <style>
+        /* CSS for the Splash Screen */
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #000; /* Black background fallback */
+        }
+
+        .splash-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            opacity: 1;
+            transition: opacity 1s ease-out;
+        }
+
+        #splashVideo {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 650px;
+            height: 650px;
+            z-index: -1; /* Place video behind other content */
+        }
+
+        .text-container {
+            position: absolute;
+            bottom: 20%;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            font-size: 2.5em;
+            color: #f0f0f0;
+            letter-spacing: 5px;
+            text-shadow: 0 0 10px rgba(0, 255, 255, 0.7), 0 0 20px rgba(255, 0, 255, 0.7);
+            opacity: 0;
+            animation: textFadeIn 2s 0.5s forwards; /* Text fades in after 1.5s */
+        }
+        
+        /* Animation for the text fade-in */
+        @keyframes textFadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        /* Class to hide the splash screen with a fade-out effect */
+        .splash-screen.hidden {
+            opacity: 0;
+        }
+
+    </style>
+</head>
+<body>
+
+    <div class="splash-screen" id="splashScreen">
+        
+        <!-- 
+            IMPORTANT: 
+            - Replace "your-animation-video.mp4" with the path to your video file.
+            - `muted` and `autoplay` are essential for the video to play automatically in most browsers.
+            - `playsinline` helps prevent fullscreen takeover on mobile devices.
+        -->
+        <video id="splashVideo" autoplay muted playsinline>
+            <source src="Game.mp4" type="video/mp4">
+            Your browser does not support the video tag.
+        </video>
+
+        <div class="text-container">
+            Pro GameZone
+        </div>
+    </div>
+
+    <script>
+        window.addEventListener('load', function() {
+            const splashScreen = document.getElementById('splashScreen');
+
+            // --- IMPORTANT: Set the duration of your splash screen in milliseconds ---
+            // For example, 8000ms = 8 seconds.
+            const SPLASH_DURATION = 4000;
+
+            // Hide the splash screen with a fade-out effect before redirecting
+            setTimeout(() => {
+                splashScreen.classList.add('hidden');
+            }, SPLASH_DURATION - 1000); // Start fade-out 1 second before redirect
+
+            // Redirect to the landing page after the splash duration
+            setTimeout(() => {
+                window.location.href = 'lp.html';
+            }, SPLASH_DURATION);
+        });
+    </script>
+
+</body>
+</html>
